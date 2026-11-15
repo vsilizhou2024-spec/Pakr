@@ -34,6 +34,9 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # 旧版默认会安装已下线的 tools 包，导致 "Failed to find package 'tools'"
+          packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
 
       - name: Cache Gradle dependencies
         uses: actions/cache@v4
