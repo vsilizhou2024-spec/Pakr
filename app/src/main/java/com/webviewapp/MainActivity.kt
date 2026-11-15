@@ -21,12 +21,9 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
 import android.view.GestureDetector
 import android.view.MotionEvent
 import kotlin.math.abs
@@ -38,20 +35,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var progressBar: TopProgressBar
     private lateinit var overlay: View
     private lateinit var spinner: IOSSpinnerView
-    private lateinit var loadingText: TextView
 
     private val handler = Handler(Looper.getMainLooper())
     private var overlayVisible = false
-
-    private val dotsFrames = arrayOf("", ".", "..", "...")
-    private var dotsIndex = 0
-    private val dotsRunnable = object : Runnable {
-        override fun run() {
-            loadingText.text = "加载中${dotsFrames[dotsIndex]}"
-            dotsIndex = (dotsIndex + 1) % dotsFrames.size
-            handler.postDelayed(this, 500)
-        }
-    }
 
     private val timeoutRunnable  = Runnable { hideOverlay() }
     // 用命名 Runnable 管理延迟隐藏，确保可被 removeCallbacks 取消
@@ -69,24 +55,12 @@ class MainActivity : AppCompatActivity() {
             androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO
         )
         super.onCreate(savedInstanceState)
-        @Suppress("DEPRECATION")
-        window.setFlags(
-            android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN or
-            android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-            android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN or
-            android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
-        )
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        val controller = WindowInsetsControllerCompat(window, window.decorView)
-        controller.hide(WindowInsetsCompat.Type.systemBars())
-        controller.systemBarsBehavior =
-            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        WindowCompat.setDecorFitsSystemWindows(window, true)
         setContentView(R.layout.activity_main)
         webView     = findViewById(R.id.webView)
         progressBar = findViewById(R.id.progressBar)
         overlay     = findViewById(R.id.overlay)
         spinner     = findViewById(R.id.spinner)
-        loadingText = findViewById(R.id.loadingText)
         swipeRefresh = findViewById(R.id.swipeRefresh)
         swipeRefresh.setColorSchemeColors(
             android.graphics.Color.parseColor("#6366F1")
@@ -268,7 +242,7 @@ class MainActivity : AppCompatActivity() {
                         addFlags(android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
                     }
                     val fileIntent = fileChooserParams.createIntent()
-                    val chooser = android.content.Intent.createChooser(fileIntent, "选择图片").apply {
+                    val chooser = android.content.Intent.createChooser(fileIntent, "Select image").apply {
                         putExtra(android.content.Intent.EXTRA_INITIAL_INTENTS, arrayOf(cameraIntent))
                     }
                     startActivityForResult(chooser, FILE_CHOOSER_REQUEST)
@@ -286,7 +260,7 @@ class MainActivity : AppCompatActivity() {
                 val req = DownloadManager.Request(uri).apply {
                     setMimeType(mimetype)
                     addRequestHeader("User-Agent", userAgent)
-                    setDescription("正在下载...")
+                    setDescription("Downloading...")
                     setTitle(filename)
                     allowScanningByMediaScanner()
                     setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
@@ -294,22 +268,11 @@ class MainActivity : AppCompatActivity() {
                 }
                 val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
                 dm.enqueue(req)
-                android.widget.Toast.makeText(this, "开始下载：$filename", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(this, "Downloading: $filename", android.widget.Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
                 try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } catch (_: Exception) {}
             }
         }
-        // 键盘弹出适配：全屏模式下 adjustResize 失效，手动监听 IME Insets 调整容器高度
-        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(swipeRefresh) { view, insets ->
-            val imeInsets = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime())
-            val lp = view.layoutParams as android.widget.FrameLayout.LayoutParams
-            lp.bottomMargin = imeInsets.bottom
-            view.layoutParams = lp
-            // WebView padding 清零，用 marginBottom 控制
-            webView.setPadding(0, 0, 0, 0)
-            insets
-        }
-
         webView.addJavascriptInterface(object {
             @JavascriptInterface
             fun onThemeColor(hex: String) {
@@ -397,9 +360,6 @@ class MainActivity : AppCompatActivity() {
         progressBar.visibility = View.VISIBLE
         progressBar.setProgress(0)
         spinner.start()
-        dotsIndex = 0
-        handler.removeCallbacks(dotsRunnable)
-        handler.post(dotsRunnable)
         handler.removeCallbacks(timeoutRunnable)
         handler.postDelayed(timeoutRunnable, 30_000L)
     }
@@ -452,7 +412,6 @@ class MainActivity : AppCompatActivity() {
     private fun hideOverlay() {
         if (!overlayVisible) return
         handler.removeCallbacks(timeoutRunnable)
-        handler.removeCallbacks(dotsRunnable)
         overlayVisible = false
         overlay.animate().cancel()
         overlay.animate().alpha(0f).setDuration(300).withEndAction {
@@ -473,10 +432,10 @@ class MainActivity : AppCompatActivity() {
           <line x1="12" y1="8" x2="12" y2="12"/>
           <line x1="12" y1="16" x2="12.01" y2="16"/>
         </svg>
-        <p style="margin-top:16px;font-size:15px;">网络连接失败</p>
+        <p style="margin-top:16px;font-size:15px;">Network error</p>
         <button onclick="location.reload()"
           style="margin-top:12px;padding:10px 24px;border:none;border-radius:999px;
-          background:#000;color:#fff;font-size:14px;cursor:pointer;">重试</button>
+          background:#000;color:#fff;font-size:14px;cursor:pointer;">Retry</button>
         </body></html>
     """.trimIndent()
 
@@ -492,7 +451,7 @@ class MainActivity : AppCompatActivity() {
                 super.onBackPressed()
             } else {
                 backPressedTime = now
-                android.widget.Toast.makeText(this, "再按一次退出", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(this, "Press back again to exit", android.widget.Toast.LENGTH_SHORT).show()
             }
         }
     }
